@@ -6,8 +6,21 @@ runs:
       shell: cmd
       env:
         GITHUB_EVENT_HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        DEPLOY_WINDOWS_ACTION_PATH: ${{ github.action_path }}
       run: |
         cd /d %USERPROFILE%
+
+        if "%CI_DEPLOY_PLATFORM%"=="windows-arm64" (
+          set "VISUAL_STUDIO_INSTALLATION_PATH="
+          for /f "usebackq tokens=*" %%V in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.ARM64 -property installationPath`) do (
+            set "VISUAL_STUDIO_INSTALLATION_PATH=%%V"
+            echo VISUAL_STUDIO_INSTALLATION_PATH=%%V>> "%GITHUB_ENV%"
+          )
+          if not defined VISUAL_STUDIO_INSTALLATION_PATH (
+            echo Visual Studio with ARM64 C++ tools was not found.
+            exit /b 1
+          )
+        )
 
         if "%CI_DEPLOY_PLATFORM%"=="windows-arm64" (
           echo Installing OpenJDK 11 for Windows on ARM
@@ -181,7 +194,8 @@ runs:
           echo Installing CUDA, cuDNN, etc
           curl -LO https://developer.download.nvidia.com/compute/cuda/13.4.2/local_installers/cuda_13.4.2_windows_arm64.exe
           curl -LO https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/windows-arm64/cudnn-windows-arm64-9.26.0.51_cuda13-archive.zip
-          cuda_13.4.2_windows_arm64.exe -s
+          pwsh -NoProfile -File "%DEPLOY_WINDOWS_ACTION_PATH%\install-cuda-arm64.ps1" -ArchivePath "%USERPROFILE%\cuda_13.4.2_windows_arm64.exe" -VisualStudioInstallationPath "%VISUAL_STUDIO_INSTALLATION_PATH%"
+          if errorlevel 1 exit /b 1
           unzip cudnn-windows-arm64-9.26.0.51_cuda13-archive.zip
           move cudnn-windows-arm64-9.26.0.51_cuda13-archive\bin\arm64\*.dll "%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v13.4\bin\arm64"
           move cudnn-windows-arm64-9.26.0.51_cuda13-archive\include\*.h "%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v13.4\include"
@@ -266,16 +280,12 @@ runs:
       shell: cmd
       run: |
         if "%CI_DEPLOY_PLATFORM%"=="windows-arm64" (
-          set "VISUAL_STUDIO_INSTALLATION_PATH="
-          for /f "usebackq tokens=*" %%V in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.ARM64 -property installationPath`) do (
-            set "VISUAL_STUDIO_INSTALLATION_PATH=%%V"
-            call "%%V\VC\Auxiliary\Build\vcvarsall.bat" arm64
-            if errorlevel 1 exit /b 1
-          )
           if not defined VISUAL_STUDIO_INSTALLATION_PATH (
-            echo Visual Studio with ARM64 C++ tools was not found.
+            echo Visual Studio installation path was not set by Install environment.
             exit /b 1
           )
+          call "%VISUAL_STUDIO_INSTALLATION_PATH%\VC\Auxiliary\Build\vcvarsall.bat" arm64
+          if errorlevel 1 exit /b 1
           where cl > nul 2>&1
           if errorlevel 1 (
             echo MSVC compiler was not found after ARM64 environment initialization.
@@ -307,6 +317,10 @@ runs:
           set "CUDA_PATH_V13_4=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v13.4"
           set "PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v13.4\bin;%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v13.4\libnvvp;%PATH%"
           echo CUDA Version 13.4.2>"%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v13.4\version.txt"
+        )
+
+        if "%CI_DEPLOY_PLATFORM%"=="windows-arm64" if defined CUDA_PATH (
+          set "PATH=%CUDA_PATH%\bin\arm64;%PATH%"
         )
 
         set "CCACHE_DIR=%USERPROFILE%\ccache"
