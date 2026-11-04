@@ -136,7 +136,7 @@ runs:
           curl -LO http://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-vulkan-loader-1.4.313.0-1-any.pkg.tar.zst
           curl -LO http://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-SDL2-2.30.12-1-any.pkg.tar.zst
           bash -c "pacman -U --noconfirm *.pkg.tar.zst"
-        ) else (
+        ) else if not "%CI_LOCAL_BUILD%"=="1" (
           if "%CI_DEPLOY_PLATFORM%"=="windows-arm64" (
             bash -c "pacman -Rc --noconfirm mingw-w64-clang-aarch64-headers-git mingw-w64-clang-aarch64-zlib"
           ) else (
@@ -192,14 +192,16 @@ runs:
           bash -c "find 'C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.4/'"
         )
 
-        if "%CI_DEPLOY_MODULE%"=="nvcodec" (
+        if "%CI_DEPLOY_MODULE%"=="nvcodec" set CI_DEPLOY_NEED_NVCODEC=1
+        if defined CI_DEPLOY_NEED_NVCODEC (
           echo Installing NVIDIA Video Codec SDK
           python -m gdown 1d_i_qrkS9rvDMgYUY7O5vQHCf_rj1Jjy
           unzip Video_Codec_SDK_13.1.15.zip
           move Video_Codec_SDK_13.1.15 "%ProgramFiles%\NVIDIA GPU Computing Toolkit\VideoCodecSDK"
         )
 
-        if "%CI_DEPLOY_MODULE%"=="tensorrt" (
+        if "%CI_DEPLOY_MODULE%"=="tensorrt" set CI_DEPLOY_NEED_TENSORRT=1
+        if defined CI_DEPLOY_NEED_TENSORRT (
           echo Installing TensorRT
           rem python -m gdown 1GfmJ1BKbacLpUU-0i_mGu0sjrAS0Xzzi
           if "%CI_DEPLOY_PLATFORM%"=="windows-arm64" (
@@ -356,6 +358,13 @@ runs:
         git submodule update --init --recursive
         git submodule foreach --recursive "git reset --hard"
 
+        if "%CI_LOCAL_BUILD%"=="1" (
+          set "MAVEN_OPTS=-Xss2m -Xmx4g"
+          python .github/scripts/build-windows-arm64-local.py
+          if errorlevel 1 exit /b 1
+          goto :done
+        )
+
         if not "%CI_DEPLOY_NEED_GRADLE%"=="" (goto :gradle) else (goto :maven)
 
         :gradle
@@ -398,6 +407,7 @@ runs:
         powershell "Get-CimInstance Win32_PageFileUsage | Select-Object * | Format-List"
 
     - name: Clean up
+      if: env.CI_LOCAL_BUILD != '1'
       shell: cmd
       run: |
         cd /d %USERPROFILE%
