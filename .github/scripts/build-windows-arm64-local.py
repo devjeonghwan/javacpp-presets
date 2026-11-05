@@ -9,6 +9,9 @@ import sys
 import time
 import xml.etree.ElementTree as element_tree
 
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 argument_parser = argparse.ArgumentParser()
 argument_parser.add_argument('--plan', action='store_true')
 arguments = argument_parser.parse_args()
