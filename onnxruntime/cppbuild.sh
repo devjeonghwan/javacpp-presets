@@ -75,12 +75,8 @@ case $PLATFORM in
         # native build, so skip the cross-compilation checks that --arm64 triggers
         sedinplace 's/if args.arm or args.arm64:/if False:/g' tools/ci_build/build.py
         export DNNL_FLAGS= # no Windows on ARM support in oneDNN
-        # the zlib headers of MSYS2 need unistd.h that only its own toolchain provides
-        ZLIB_SAFE=$INSTALL_PATH/zlib-include-safe
-        rm -Rf $ZLIB_SAFE && mkdir -p $ZLIB_SAFE
-        cp /c/msys64/clangarm64/include/zlib.h /c/msys64/clangarm64/include/zconf.h $ZLIB_SAFE/
         # recent CMake needs the policy version of the vendored projects declared
-        CMAKE_EXTRA_DEFINES="CMAKE_BUILD_TYPE=Release CMAKE_POLICY_VERSION_MINIMUM=3.5 ZLIB_INCLUDE_DIR=$ZLIB_SAFE ZLIB_LIBRARY_RELEASE=/c/msys64/clangarm64/lib/libz.a ZLIB_LIBRARY_DEBUG=/c/msys64/clangarm64/lib/libz.a onnxruntime_ENABLE_LTO=OFF onnxruntime_BUILD_UNIT_TESTS=OFF"
+        CMAKE_EXTRA_DEFINES="CMAKE_BUILD_TYPE=Release CMAKE_POLICY_VERSION_MINIMUM=3.5 protobuf_WITH_ZLIB=OFF onnxruntime_ENABLE_LTO=OFF onnxruntime_BUILD_UNIT_TESTS=OFF"
         ;;
 esac
 
