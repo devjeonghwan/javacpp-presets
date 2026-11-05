@@ -44,6 +44,18 @@ git checkout v$ONNXRUNTIME
 git submodule update --init --recursive
 git submodule foreach --recursive 'git reset --hard'
 
+if [[ $PLATFORM == windows-* ]]; then
+    if [[ -n "${CUDA_PATH:-}" ]]; then
+        export CUDACXX="$CUDA_PATH/bin/nvcc.exe"
+        export CUDA_HOME="$CUDA_PATH"
+        export CUDNN_HOME="$CUDA_PATH"
+    fi
+    export CC="cl.exe"
+    export CXX="cl.exe"
+    export ARCH_FLAGS="--cmake_generator Ninja"
+    export PYTHON_BIN_PATH=$(which python.exe)
+fi
+
 case $PLATFORM in
     linux-arm64)
         export CC="aarch64-linux-gnu-gcc"
@@ -62,24 +74,13 @@ case $PLATFORM in
     windows-arm64)
         # native build, so skip the cross-compilation checks that --arm64 triggers
         sedinplace 's/if args.arm or args.arm64:/if False:/g' tools/ci_build/build.py
-        export DNNL_FLAGS="--disable_dnnl" # no Windows on ARM support in oneDNN
+        export DNNL_FLAGS= # no Windows on ARM support in oneDNN
         # the zlib headers of MSYS2 need unistd.h that only its own toolchain provides
         ZLIB_SAFE=$INSTALL_PATH/zlib-include-safe
         rm -Rf $ZLIB_SAFE && mkdir -p $ZLIB_SAFE
         cp /c/msys64/clangarm64/include/zlib.h /c/msys64/clangarm64/include/zconf.h $ZLIB_SAFE/
         # recent CMake needs the policy version of the vendored projects declared
         CMAKE_EXTRA_DEFINES="CMAKE_BUILD_TYPE=Release CMAKE_POLICY_VERSION_MINIMUM=3.5 ZLIB_INCLUDE_DIR=$ZLIB_SAFE ZLIB_LIBRARY_RELEASE=/c/msys64/clangarm64/lib/libz.a ZLIB_LIBRARY_DEBUG=/c/msys64/clangarm64/lib/libz.a onnxruntime_ENABLE_LTO=OFF onnxruntime_BUILD_UNIT_TESTS=OFF"
-        ;;
-    windows-*)
-        if [[ -n "${CUDA_PATH:-}" ]]; then
-            export CUDACXX="$CUDA_PATH/bin/nvcc.exe"
-            export CUDA_HOME="$CUDA_PATH"
-            export CUDNN_HOME="$CUDA_PATH"
-        fi
-        export CC="cl.exe"
-        export CXX="cl.exe"
-        export ARCH_FLAGS="--cmake_generator Ninja"
-        export PYTHON_BIN_PATH=$(which python.exe)
         ;;
 esac
 

@@ -171,7 +171,16 @@ case $PLATFORM in
             fi
         done
         export CC="cl.exe" CXX="cl.exe"
-        ATLAS=None "$PYTHON_BIN_PATH" -m pip install . --prefix $INSTALL_PATH --config-settings=build-dir=build
+        export PYTHONFAULTHANDLER=1
+        command -v cython || true
+        "$PYTHON_BIN_PATH" -X faulthandler -c "import sys, Cython; print(sys.executable); print(sys.version); print(Cython.__version__); print(Cython.__file__)" || true
+        if "$PYTHON_BIN_PATH" -X faulthandler -m cython -V; then
+            echo "Cython module probe succeeded"
+        else
+            echo "Cython module probe failed with status $?"
+        fi
+        sedinplace 's/Cython>=3.1.0/Cython==3.2.6/' pyproject.toml
+        ATLAS=None PIP_NO_BINARY=cython NO_CYTHON_COMPILE=true "$PYTHON_BIN_PATH" -m pip install . --prefix $INSTALL_PATH --config-settings=build-dir=build
         ;;
     *)
         echo "Error: Platform \"$PLATFORM\" is not supported"

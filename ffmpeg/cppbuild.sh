@@ -2479,7 +2479,7 @@ EOF
         make -j $MAKEJ V=0
         make install
         cd ../openh264-$OPENH264_VERSION
-        make -j $MAKEJ DESTDIR=./ PREFIX=.. AR=ar ARCH=arm64 USE_ASM=No install-static
+        make -j $MAKEJ DESTDIR=./ PREFIX=.. AR=ar OS=mingw_nt ARCH=arm64 USE_ASM=No install-static
         cd ../$X264
         ./configure --prefix=$INSTALL_PATH --enable-static --enable-pic --disable-opencl --host=aarch64-w64-mingw32
         make -j $MAKEJ V=0

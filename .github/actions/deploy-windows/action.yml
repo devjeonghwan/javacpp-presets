@@ -209,9 +209,9 @@ runs:
         if "%CI_DEPLOY_MODULE%"=="nvcodec" set CI_DEPLOY_NEED_NVCODEC=1
         if defined CI_DEPLOY_NEED_NVCODEC (
           echo Installing NVIDIA Video Codec SDK
-          python -m gdown 1d_i_qrkS9rvDMgYUY7O5vQHCf_rj1Jjy
-          unzip Video_Codec_SDK_13.1.15.zip
-          move Video_Codec_SDK_13.1.15 "%ProgramFiles%\NVIDIA GPU Computing Toolkit\VideoCodecSDK"
+          python -m gdown 1wej84nLEQOGBvznpaLrRmkjCPfLr_WWm
+          unzip Video_Codec_SDK_13.1.24.zip
+          move Video_Codec_SDK_13.1.24 "%ProgramFiles%\NVIDIA GPU Computing Toolkit\VideoCodecSDK"
         )
 
         if "%CI_DEPLOY_MODULE%"=="tensorrt" set CI_DEPLOY_NEED_TENSORRT=1
