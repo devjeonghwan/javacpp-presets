@@ -2481,8 +2481,10 @@ EOF
         cd ../openh264-$OPENH264_VERSION
         make -j $MAKEJ DESTDIR=./ PREFIX=.. AR=ar OS=mingw_nt ARCH=arm64 USE_ASM=No install-static
         cd ../$X264
-        ./configure --prefix=$INSTALL_PATH --enable-static --enable-pic --disable-opencl --host=aarch64-w64-mingw32
+        command -v llvm-ar llvm-ranlib llvm-nm
+        AR=llvm-ar RANLIB=llvm-ranlib NM=llvm-nm ./configure --prefix=$INSTALL_PATH --enable-static --enable-pic --disable-opencl --host=aarch64-w64-mingw32
         make -j $MAKEJ V=0
+        llvm-nm --defined-only libx264.a | grep -q '[[:space:]]x264_param_default$'
         make install
         cd ../x265-$X265/build/linux
         if [[ $PLATFORM == windows-arm64 ]]; then
