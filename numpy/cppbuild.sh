@@ -170,7 +170,6 @@ case $PLATFORM in
                 eval "export $v=\$(cygpath -m \"\${$v}\")"
             fi
         done
-        export PATH="$MSVC_BIN${MSVC_LINK:+:$MSVC_LINK}:/c/msys64/clangarm64/bin"
         export CC="cl.exe" CXX="cl.exe"
         ATLAS=None "$PYTHON_BIN_PATH" -m pip install . --prefix $INSTALL_PATH --config-settings=build-dir=build
         ;;

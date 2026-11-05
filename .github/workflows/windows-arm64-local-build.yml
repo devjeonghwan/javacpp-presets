@@ -49,5 +49,6 @@ jobs:
         with:
           name: windows-arm64-local-build-logs
           path: .ci-logs/
+          include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7
