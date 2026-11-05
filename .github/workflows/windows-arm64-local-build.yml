@@ -4,6 +4,7 @@ on:
     branches:
       - test/windows-arm64-local-build
     paths:
+      - .gitattributes
       - .github/workflows/windows-arm64-local-build.yml
       - .github/scripts/build-windows-arm64-local.py
       - .github/actions/deploy-windows/**
