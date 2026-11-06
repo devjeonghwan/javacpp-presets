@@ -2575,6 +2575,12 @@ EOF
         cd ..
         cd ../ffmpeg-$FFMPEG_VERSION
         if [[ $PLATFORM == windows-arm64 ]]; then
+            # Avoid shadowing libc++'s <version> on case-insensitive filesystems.
+            if [[ -f VERSION ]]; then
+                mv VERSION RELEASE_VERSION
+            fi
+            sedinplace 's/cat VERSION /cat RELEASE_VERSION /' ffbuild/version.sh
+            sedinplace 's/"VERSION"/"RELEASE_VERSION"/g' doc/doxy-wrapper.sh
             # native build with the MSYS2 CLANGARM64 toolchain and lld as linker
             AR=llvm-ar RANLIB=llvm-ranlib
             # x265, mfx_dispatch and kvazaar only installed their headers above,
