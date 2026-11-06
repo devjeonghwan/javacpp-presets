@@ -14,6 +14,7 @@ sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 argument_parser = argparse.ArgumentParser()
 argument_parser.add_argument('--plan', action='store_true')
+argument_parser.add_argument('--scope', choices=['full', 'ffmpeg'], default=os.environ.get('CI_LOCAL_BUILD_SCOPE', 'full'))
 arguments = argument_parser.parse_args()
 repository = Path(__file__).resolve().parents[2]
 namespace = {'maven': 'http://maven.apache.org/POM/4.0.0'}
@@ -28,6 +29,10 @@ module_dependencies = {
     'ffmpeg': ['opencl'],
     'pytorch': ['openblas', 'cpython', 'numpy', 'cuda'],
 }
+if arguments.scope not in ['full', 'ffmpeg']:
+    argument_parser.error('Unsupported build scope: ' + arguments.scope)
+if arguments.scope == 'ffmpeg':
+    module_dependencies = {module_name: module_dependencies[module_name] for module_name in ['opencl', 'ffmpeg']}
 parent_version = element_tree.parse(repository / 'pom.xml').getroot().findtext('maven:version', namespaces=namespace)
 module_versions = {
     module_name: element_tree.parse(repository / module_name / 'pom.xml').getroot().findtext('maven:version', namespaces=namespace)
@@ -49,17 +54,18 @@ summary_path = Path(os.environ.get('GITHUB_STEP_SUMMARY', log_directory / 'summa
 summary_path.write_text('| Build | Result | Seconds |\n| --- | --- | ---: |\n', encoding='utf-8')
 results = {}
 
-# Use the versions built from this checkout, not published older ARM64 packages.
-pytorch_path = repository / 'pytorch/pom.xml'
-pytorch_original = pytorch_path.read_bytes()
-pytorch_text = pytorch_original.decode('utf-8')
-for dependency_name in ['cpython', 'numpy']:
-    artifact_name = 'numpy-platform' if dependency_name == 'numpy' else dependency_name
-    pattern = r'(<artifactId>' + artifact_name + r'</artifactId>\s*<version>)[^<]+(</version>)'
-    pytorch_text, replacement_count = re.subn(pattern, lambda match: match[1] + module_versions[dependency_name] + match[2], pytorch_text)
-    if replacement_count != 1:
-        sys.exit('Expected one PyTorch dependency on ' + artifact_name)
-    print('Temporary PyTorch dependency: ' + artifact_name + ' ' + module_versions[dependency_name], flush=True)
+if 'pytorch' in module_dependencies:
+    # Use the versions built from this checkout, not published older ARM64 packages.
+    pytorch_path = repository / 'pytorch/pom.xml'
+    pytorch_original = pytorch_path.read_bytes()
+    pytorch_text = pytorch_original.decode('utf-8')
+    for dependency_name in ['cpython', 'numpy']:
+        artifact_name = 'numpy-platform' if dependency_name == 'numpy' else dependency_name
+        pattern = r'(<artifactId>' + artifact_name + r'</artifactId>\s*<version>)[^<]+(</version>)'
+        pytorch_text, replacement_count = re.subn(pattern, lambda match: match[1] + module_versions[dependency_name] + match[2], pytorch_text)
+        if replacement_count != 1:
+            sys.exit('Expected one PyTorch dependency on ' + artifact_name)
+        print('Temporary PyTorch dependency: ' + artifact_name + ' ' + module_versions[dependency_name], flush=True)
 
 maven_options = [
     '-B', '-e', '-ntp', '-N',
@@ -101,8 +107,9 @@ def install_project(project_path, build_name, extra_options=None, expected_artif
 
 
 try:
-    pytorch_path.write_bytes(pytorch_text.encode('utf-8'))
-    shutil.copyfile(pytorch_path, log_directory / 'pytorch-effective-source-pom.xml')
+    if 'pytorch' in module_dependencies:
+        pytorch_path.write_bytes(pytorch_text.encode('utf-8'))
+        shutil.copyfile(pytorch_path, log_directory / 'pytorch-effective-source-pom.xml')
     (log_directory / 'revision.txt').write_text(os.environ['GITHUB_SHA'], encoding='utf-8')
     if not install_project(repository / 'pom.xml', 'parent'):
         sys.exit(1)
@@ -123,6 +130,7 @@ try:
         if module_name == 'ffmpeg':
             install_project(repository / module_name / 'pom.xml', 'ffmpeg-gpl', ['-Djavacpp.platform.extension=-gpl'], [artifact_directory / f'{module_name}-{version}-windows-arm64-gpl.jar'])
 finally:
-    pytorch_path.write_bytes(pytorch_original)
+    if 'pytorch' in module_dependencies:
+        pytorch_path.write_bytes(pytorch_original)
 
 sys.exit(0 if all(result == 'passed' for result in results.values()) else 1)

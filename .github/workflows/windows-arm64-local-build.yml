@@ -9,6 +9,14 @@ on:
       - .github/scripts/build-windows-arm64-local.py
       - .github/actions/deploy-windows/**
   workflow_dispatch:
+    inputs:
+      scope:
+        description: Build scope
+        type: choice
+        default: full
+        options:
+          - full
+          - ffmpeg
 permissions:
   contents: read
 concurrency:
@@ -20,11 +28,12 @@ jobs:
     timeout-minutes: 360
     env:
       CI_LOCAL_BUILD: 1
+      CI_LOCAL_BUILD_SCOPE: ${{ inputs.scope || 'full' }}
       CI_DEPLOY_PLATFORM: windows-arm64
       CI_DEPLOY_MODULE: windows-arm64-local-build
-      CI_DEPLOY_NEED_CUDA: 1
+      CI_DEPLOY_NEED_CUDA: ${{ inputs.scope != 'ffmpeg' && '1' || '' }}
       CI_DEPLOY_NEED_CACHE: 1
-      CI_DEPLOY_NEED_NVCODEC: 1
+      CI_DEPLOY_NEED_NVCODEC: ${{ inputs.scope != 'ffmpeg' && '1' || '' }}
       CI_DEPLOY_USERNAME: ''
       CI_DEPLOY_PASSWORD: ''
       TEMP: C:\temp
