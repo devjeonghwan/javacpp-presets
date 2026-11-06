@@ -123,7 +123,9 @@ sedinplace 's/if args.arm or args.arm64:/if False:/g' tools/ci_build/build.py
 sedinplace 's/is_linux() and platform.machine() == "x86_64"/False/g' tools/ci_build/build.py
 sedinplace 's/onnxruntime_target_platform STREQUAL "aarch64"/FALSE/g' cmake/CMakeLists.txt
 sedinplace 's/if (NOT APPLE)/if (FALSE)/g' cmake/onnxruntime_mlas.cmake
-sedinplace 's/!defined(__APPLE__)/0/g' onnxruntime/core/mlas/inc/mlas.h
+if [[ $PLATFORM != windows-arm64 ]]; then
+    sedinplace 's/!defined(__APPLE__)/0/g' onnxruntime/core/mlas/inc/mlas.h
+fi
 sedinplace 's/defined(__aarch64__) && defined(__linux__)/0/g' `find . -name *.cpp -o -name *.cc -o -name *.h`
 sedinplace 's/MLAS_CPUIDINFO::GetCPUIDInfo().HasArmNeon_I8MM()/false/g' onnxruntime/core/mlas/lib/platform.cpp
 

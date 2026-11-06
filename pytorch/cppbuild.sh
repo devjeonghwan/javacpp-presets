@@ -263,13 +263,13 @@ case $PLATFORM in
             export CUDNN_HOME="$CUDA_PATH"
         fi
         export USE_NCCL=0 # Not supported on Windows
-        ;;
-    windows-arm64)
-        export USE_MKLDNN=OFF # no Windows on ARM support in oneDNN
-        export USE_FBGEMM=OFF # no Windows on ARM support in FBGEMM
-        export USE_KINETO=OFF # no Windows on ARM support in Kineto
-        export USE_XNNPACK=OFF # no Windows on ARM support in XNNPACK
-        export USE_NUMPY=1 # numpy headers/libs built above against this CPython
+        if [[ $PLATFORM == windows-arm64 ]]; then
+            export USE_MKLDNN=OFF # no Windows on ARM support in oneDNN
+            export USE_FBGEMM=OFF # no Windows on ARM support in FBGEMM
+            export USE_KINETO=OFF # no Windows on ARM support in Kineto
+            export USE_XNNPACK=OFF # no Windows on ARM support in XNNPACK
+            export USE_NUMPY=1 # numpy headers/libs built above against this CPython
+        fi
         ;;
     *)
         echo "Error: Platform \"$PLATFORM\" is not supported"
@@ -280,6 +280,9 @@ esac
 #sedinplace 's/,code=sm_.*)/,code=compute_60)/g' cmake/Modules_CUDA_fix/upstream/FindCUDA/select_compute_arch.cmake
 
 # work around issues with the build system
+if [[ $PLATFORM == windows-arm64 ]]; then
+    set -x
+fi
 sedinplace '/set(CMAKE_CXX_STANDARD/i\
     set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 ' CMakeLists.txt
@@ -339,7 +342,11 @@ sedinplace 's/#include <stdexcept>/#include <stdexcept>\
 # On Linux, pytorch FindOpenMP.cmake picks llvm libomp over libgomp. See Issue #1504.
 # On MacOS CMake standard version works tooL
 rm -f cmake/Modules/FindOpenMP.cmake
-sedinplace 's/include(${CMAKE_CURRENT_LIST_DIR}\/Modules\/FindOpenMP.cmake)/find_package(OpenMP)/g' cmake/Dependencies.cmake
+sedinplace 's@include(${CMAKE_CURRENT_LIST_DIR}/Modules/FindOpenMP.cmake)@find_package(OpenMP)@g' cmake/Dependencies.cmake
+
+if [[ $PLATFORM == windows-arm64 ]]; then
+    set +x
+fi
 
 # delete broken CUDA kernels at least on Windows with CUDA 12.9
 #rm -f aten/src/ATen/native/cuda/SegmentReduce.cu

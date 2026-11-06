@@ -2553,7 +2553,8 @@ EOF
         echo "ar = 'ar'" >> windows-native.ini
         echo "windres = 'windres'" >> windows-native.ini
         echo "strip = 'strip'" >> windows-native.ini
-        meson setup build --prefix=$INSTALL_PATH $HARFBUZZ_CONFIG --native-file windows-native.ini
+        echo "pkg-config = '$(cygpath -m /c/msys64/clangarm64/bin/pkg-config.exe)'" >> windows-native.ini
+        meson setup build --prefix=$INSTALL_PATH $HARFBUZZ_CONFIG --native-file windows-native.ini --pkg-config-path="$(cygpath -m "$INSTALL_PATH/lib/pkgconfig")"
         cd build
         meson compile
         meson install
