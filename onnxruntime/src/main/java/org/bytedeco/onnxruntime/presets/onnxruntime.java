@@ -383,6 +383,7 @@ public class onnxruntime implements LoadEnabled, InfoMapper {
                .put(new Info("Ort::ProfilingEvent").cast().pointerTypes("ProfilingEvent").purify())
                .put(new Info("OrtSessionOptionsAppendExecutionProvider_MIGraphX", "OrtSessionOptionsAppendExecutionProvider_Tensorrt",
                              "OrtSessionOptionsAppendExecutionProvider_ROCM", "Ort::detail::OptionalTypeInfoImpl<OrtTypeInfo>::GetOptionalElementType").skip())
+               .put(new Info("OrtSessionOptionsAppendExecutionProvider_Dnnl").annotations("@Platform(not=\"windows-arm64\")").javaNames("OrtSessionOptionsAppendExecutionProvider_Dnnl"))
                .put(new Info("OrtSessionOptionsAppendExecutionProvider_CUDA").annotations("@Platform(extension=\"-gpu\")").javaNames("OrtSessionOptionsAppendExecutionProvider_CUDA"));
         if (Loader.getPlatform().equals("windows-arm64")) {
             // no DNNL or OpenVINO execution provider there, so don't try to link the

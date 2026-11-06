@@ -2573,25 +2573,13 @@ EOF
         make -j $MAKEJ
         make install
         cd ..
-        cd ../kvazaar-$KVAZAAR_VERSION
-        if [[ $PLATFORM == windows-arm64 ]]; then
-            # kvazaar has no Windows on ARM support yet, so only install its headers
-            ./configure --prefix=$INSTALL_PATH || true
-            make install 2>/dev/null || true
-            cp -a include/kvazaar.h $INSTALL_PATH/include/ 2>/dev/null || true
-        else
-        ./autogen.sh
-        CC="gcc" CFLAGS="-DKVZ_STATIC_LIB" ./configure --prefix=$INSTALL_PATH --disable-shared --enable-static --host=aarch64-w64-mingw32
-        make -j $MAKEJ V=0
-        make install
-        fi
         cd ../ffmpeg-$FFMPEG_VERSION
         if [[ $PLATFORM == windows-arm64 ]]; then
             # native build with the MSYS2 CLANGARM64 toolchain and lld as linker
             AR=llvm-ar RANLIB=llvm-ranlib
             # x265, mfx_dispatch and kvazaar only installed their headers above,
             # and Vulkan, CUDA, libmfx and kvazaar have no Windows on ARM support
-            PKG_CONFIG_PATH=../lib/pkgconfig/ ./configure --prefix=.. $DISABLE $ENABLE $EXTRA_CONFIG --disable-vulkan --disable-cuda --disable-cuvid --disable-nvenc --disable-libmfx --disable-libkvazaar --disable-libx265 --enable-w32threads --enable-indev=dshow --target-os=mingw32 --arch=aarch64 --host=aarch64-w64-windows-gnu --cc="gcc" --cxx="g++" --ar="$AR" --ranlib="$RANLIB" --extra-cflags="-DLIBXML_STATIC -I../include/ -I../include/libxml2 -I../include/mfx/ -I../include/svt-av1 $EXTRA_CFLAGS" --extra-ldflags="-L../lib/ $EXTRA_LDFLAGS" --extra-libs="-static-libgcc -static -lWs2_32 -lcrypt32 -lpthread -lz -lm -lole32 -luuid $EXTRA_LIBS" || cat ffbuild/config.log
+            PKG_CONFIG_PATH=../lib/pkgconfig/ ./configure --prefix=.. $DISABLE $ENABLE $EXTRA_CONFIG --disable-vulkan --disable-cuda --disable-cuvid --disable-nvenc --disable-libmfx --disable-libkvazaar --disable-libx265 --enable-w32threads --enable-indev=dshow --target-os=mingw32 --arch=aarch64 --cc="gcc" --cxx="g++" --ar="$AR" --ranlib="$RANLIB" --extra-cflags="-DLIBXML_STATIC -I../include/ -I../include/libxml2 -I../include/mfx/ -I../include/svt-av1 $EXTRA_CFLAGS" --extra-ldflags="-L../lib/ $EXTRA_LDFLAGS" --extra-libs="-static-libgcc -static -lWs2_32 -lcrypt32 -lpthread -lz -lm -lole32 -luuid $EXTRA_LIBS" || cat ffbuild/config.log
             if ! grep -q "^#define HAVE_OPENCL_D3D11 1" config.h; then
                 echo "Error: FFmpeg configured OpenCL without D3D11 sharing support"
                 cat ffbuild/config.log

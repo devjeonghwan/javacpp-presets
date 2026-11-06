@@ -174,11 +174,14 @@ export CFLAGS="-I$CPYTHON_PATH/include/ -I$PYTHON_LIB_PATH/include/python/"
 export PYTHONNOUSERSITE=1
 if [[ $PLATFORM == windows-arm64 ]]; then
     printf '%s\n' 'Cython==3.2.6' > cython-build-constraints.txt
-    PYTHONFAULTHANDLER=1 PIP_NO_BINARY=cython PIP_NO_CACHE_DIR=1 NO_CYTHON_COMPILE=true PIP_CONSTRAINT="$(cygpath -m "$PWD/cython-build-constraints.txt")" "$PYTHON_BIN_PATH" -m pip install --target="$PYTHON_LIB_PATH" setuptools==67.6.1 pyyaml==6.0.2 typing_extensions==4.8.0 packaging==25.0 scikit-build-core==1.0.3 six==1.17.0 -v
+    PYTHONFAULTHANDLER=1 PIP_NO_BINARY=cython PIP_NO_CACHE_DIR=1 NO_CYTHON_COMPILE=true PIP_CONSTRAINT="$(cygpath -m "$PWD/cython-build-constraints.txt")" "$PYTHON_BIN_PATH" -m pip install --target="$PYTHON_LIB_PATH" setuptools==67.6.1 pyyaml==6.0.2 packaging==25.0 scikit-build-core==1.0.3 six==1.17.0 -v
     "$PYTHON_BIN_PATH" -X faulthandler -c "import sys, yaml; print(sys.executable); print(yaml.__version__); print(yaml.__file__)"
 else
-    $PYTHON_BIN_PATH -m pip install --target=$PYTHON_LIB_PATH setuptools==67.6.1 pyyaml==6.0.2 typing_extensions==4.8.0 packaging==25.0 scikit-build-core==1.0.3 six==1.17.0
+    $PYTHON_BIN_PATH -m pip install --target=$PYTHON_LIB_PATH setuptools==67.6.1 pyyaml==6.0.2 packaging==25.0 scikit-build-core==1.0.3 six==1.17.0
 fi
+
+"$PYTHON_BIN_PATH" -m pip install --upgrade --target="$PYTHON_LIB_PATH" typing_extensions==4.16.0
+"$PYTHON_BIN_PATH" -c "import importlib.metadata, typing_extensions; from typing_extensions import assert_never; print(importlib.metadata.version('typing_extensions')); print(typing_extensions.__file__)"
 
 case $PLATFORM in
     linux-x86)
