@@ -92,7 +92,7 @@ mkdir -p $PLATFORM$EXTENSION
 cd $PLATFORM$EXTENSION
 INSTALL_PATH=`pwd`
 case $PLATFORM in
-    linux-arm64 | linux-x86_64 | macosx-arm64 | macosx-x86_64 | windows-x86_64)
+    linux-arm64 | linux-x86_64 | macosx-arm64 | macosx-x86_64 | windows-arm64 | windows-x86_64)
         OPENCL_PATH="${BUILD_PATH:-$TOP_PATH/opencl/cppbuild/$PLATFORM}"
         if [[ "$PLATFORM" == windows-* ]]; then
             OPENCL_PATH="$(cygpath -u "$OPENCL_PATH")"

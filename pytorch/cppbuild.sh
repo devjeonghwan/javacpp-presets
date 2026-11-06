@@ -273,6 +273,12 @@ case $PLATFORM in
             export USE_KINETO=OFF # no Windows on ARM support in Kineto
             export USE_XNNPACK=OFF # no Windows on ARM support in XNNPACK
             export USE_NUMPY=1 # numpy headers/libs built above against this CPython
+            # SLEEF's SVE probe passes with MSVC, but helpersve.h requires __ARM_FEATURE_SVE.
+            sedinplace '/add_subdirectory(.*third_party\/sleef/i\
+    if(CMAKE_C_COMPILER_ID STREQUAL "MSVC")\
+      set(SLEEF_DISABLE_SVE ON CACHE BOOL "Disable SVE for Windows ARM64 MSVC" FORCE)\
+    endif()\
+' aten/src/ATen/CMakeLists.txt
         fi
         ;;
     *)
