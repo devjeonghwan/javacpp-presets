@@ -8,6 +8,7 @@ if [[ -z "$PLATFORM" ]]; then
 fi
 
 export BUILD_TEST=0
+export BUILD_PYTHON=OFF
 #export CUDAHOSTCC="clang"
 #export CUDAHOSTCXX="clang++"
 export CUDACXX="/usr/local/cuda/bin/nvcc"
@@ -344,8 +345,12 @@ sedinplace 's/#include <stdexcept>/#include <stdexcept>\
 # and see if choosing experimental works. See Issue #1503.
 # On Linux, pytorch FindOpenMP.cmake picks llvm libomp over libgomp. See Issue #1504.
 # On MacOS CMake standard version works tooL
+sedinplace '/^[[:space:]]*include(.*FindOpenMP[.]cmake)/c\  find_package(OpenMP)' cmake/Dependencies.cmake
+if grep -q 'include(.*FindOpenMP[.]cmake)' cmake/Dependencies.cmake || ! grep -q 'find_package(OpenMP)' cmake/Dependencies.cmake; then
+    echo "Error: Failed to replace the PyTorch OpenMP module include"
+    exit 1
+fi
 rm -f cmake/Modules/FindOpenMP.cmake
-sedinplace 's@include(${CMAKE_CURRENT_LIST_DIR}/Modules/FindOpenMP.cmake)@find_package(OpenMP)@g' cmake/Dependencies.cmake
 
 if [[ $PLATFORM == windows-arm64 ]]; then
     set +x
