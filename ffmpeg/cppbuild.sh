@@ -7,6 +7,32 @@ if [[ -z "$PLATFORM" ]]; then
     exit
 fi
 
+if [[ $PLATFORM == windows-arm64 ]]; then
+    WINDOWS_KIT_DIRECTORY="${WindowsSDKDir:-${WINDOWSSDKDIR:-}}"
+    WINDOWS_KIT_VERSION="${WindowsSDKVersion:-${WINDOWSSDKVERSION:-}}"
+    WINDOWS_PROCESS_STATUS_LIBRARY=""
+    if [[ -n "$WINDOWS_KIT_DIRECTORY" && -n "$WINDOWS_KIT_VERSION" ]]; then
+        WINDOWS_PROCESS_STATUS_LIBRARY=$(cygpath -u "$WINDOWS_KIT_DIRECTORY/Lib/$WINDOWS_KIT_VERSION/um/arm64/psapi.lib")
+    fi
+    if [[ ! -f "$WINDOWS_PROCESS_STATUS_LIBRARY" ]]; then
+        IFS=';' read -r -a WINDOWS_LIBRARY_DIRECTORIES <<< "${LIB:-}"
+        for library_directory in "${WINDOWS_LIBRARY_DIRECTORIES[@]}"; do
+            [[ -z "$library_directory" ]] && continue
+            library_directory=$(cygpath -u "$library_directory")
+            library_directory="${library_directory%/}"
+            if [[ "${library_directory,,}" == */um/arm64 && -f "$library_directory/psapi.lib" ]]; then
+                WINDOWS_PROCESS_STATUS_LIBRARY="$library_directory/psapi.lib"
+                break
+            fi
+        done
+    fi
+    if [[ ! -f "$WINDOWS_PROCESS_STATUS_LIBRARY" ]]; then
+        echo "Error: ARM64 psapi.lib not found in WindowsSDKDir/WINDOWSSDKDIR with WindowsSDKVersion/WINDOWSSDKVERSION, or in LIB"
+        exit 1
+    fi
+    echo "Using ARM64 psapi.lib: $WINDOWS_PROCESS_STATUS_LIBRARY"
+fi
+
 DISABLE="--disable-iconv --disable-sdl2 --disable-bzlib --disable-lzma --disable-linux-perf --disable-xlib"
 ENABLE="--enable-shared --enable-version3 --enable-runtime-cpudetect --enable-zlib --enable-libmp3lame --enable-libspeex --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libvo-amrwbenc --enable-openssl --enable-libopenh264 --enable-libvpx --enable-libfreetype --enable-libharfbuzz --enable-libopus --enable-libxml2 --enable-libsrt --enable-libwebp --enable-libaom --enable-libsvtav1 --enable-libzimg --enable-libkvazaar"
 ENABLE_VULKAN="--enable-vulkan --enable-hwaccel=h264_vulkan --enable-hwaccel=hevc_vulkan --enable-hwaccel=av1_vulkan"
@@ -2598,7 +2624,7 @@ EOF
                 cp -f "$INSTALL_PATH/lib/lib$library_name.dll.a" "$INSTALL_PATH/lib/$library_name.dll.a"
                 cp -f "$INSTALL_PATH/bin/$library_name.lib" "$INSTALL_PATH/lib/$library_name.lib"
             done
-            cp -f "$(cygpath -u "${WindowsSDKDir:?}/Lib/${WindowsSDKVersion:?}/um/arm64/psapi.lib")" "$INSTALL_PATH/lib/psapi.lib"
+            cp -f "$WINDOWS_PROCESS_STATUS_LIBRARY" "$INSTALL_PATH/lib/psapi.lib"
         else
         PKG_CONFIG_PATH=../lib/pkgconfig/ ./configure --prefix=.. $DISABLE $ENABLE $EXTRA_CONFIG $ENABLE_VULKAN --enable-cuda --enable-cuvid --enable-nvenc --enable-libmfx --enable-w32threads --enable-indev=dshow --target-os=mingw32 --cc="gcc" --cxx="g++" --extra-cflags="-DLIBXML_STATIC -DKVZ_STATIC_LIB -I../include/ -I../include/libxml2 -I../include/mfx/ -I../include/svt-av1 $EXTRA_CFLAGS" --extra-ldflags="-L../lib/ $EXTRA_LDFLAGS" --extra-libs="-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lgcc_eh -lWs2_32 -lcrypt32 -lpthread -lz -lm -Wl,-Bdynamic -lole32 -luuid $EXTRA_LIBS" || cat ffbuild/config.log
         if ! grep -q "^#define HAVE_OPENCL_D3D11 1" config.h; then
