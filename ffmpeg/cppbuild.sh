@@ -2593,18 +2593,12 @@ EOF
             fi
             make -j $MAKEJ
             make install
-            # the GNU toolchain names its import libraries lib$n.dll.a, so copy them
-            # under the names the presets link against, generate the MSVC import
-            # libraries from the .def files installed along with the DLLs, and make
-            # psapi.lib of the Windows SDK reachable for those presets
-            if [[ -z "${WindowsSDKDir:-}" ]]; then
-                WindowsSDKDir="/c/Program Files (x86)/Windows Kits/10"
-            fi
-            for n in avcodec avdevice avfilter avformat avutil swresample swscale; do
-                cp -f lib/lib$n.dll.a lib/$n.dll.a
-                [ -f lib/$n.lib ] || (cd lib && lib.exe //NOLOGO //DEF:$n-*.def //OUT:$n.lib //MACHINE:ARM64)
+            # Match the preset import library names and reuse FFmpeg's MSVC libraries.
+            for library_name in avcodec avdevice avfilter avformat avutil swresample swscale; do
+                cp -f "$INSTALL_PATH/lib/lib$library_name.dll.a" "$INSTALL_PATH/lib/$library_name.dll.a"
+                cp -f "$INSTALL_PATH/bin/$library_name.lib" "$INSTALL_PATH/lib/$library_name.lib"
             done
-            cp -f "${WindowsSDKDir%/}/Lib/ARM64/psapi.lib" lib/psapi.lib
+            cp -f "$(cygpath -u "${WindowsSDKDir:?}/Lib/${WindowsSDKVersion:?}/um/arm64/psapi.lib")" "$INSTALL_PATH/lib/psapi.lib"
         else
         PKG_CONFIG_PATH=../lib/pkgconfig/ ./configure --prefix=.. $DISABLE $ENABLE $EXTRA_CONFIG $ENABLE_VULKAN --enable-cuda --enable-cuvid --enable-nvenc --enable-libmfx --enable-w32threads --enable-indev=dshow --target-os=mingw32 --cc="gcc" --cxx="g++" --extra-cflags="-DLIBXML_STATIC -DKVZ_STATIC_LIB -I../include/ -I../include/libxml2 -I../include/mfx/ -I../include/svt-av1 $EXTRA_CFLAGS" --extra-ldflags="-L../lib/ $EXTRA_LDFLAGS" --extra-libs="-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lgcc_eh -lWs2_32 -lcrypt32 -lpthread -lz -lm -Wl,-Bdynamic -lole32 -luuid $EXTRA_LIBS" || cat ffbuild/config.log
         if ! grep -q "^#define HAVE_OPENCL_D3D11 1" config.h; then
