@@ -215,7 +215,7 @@ case $PLATFORM in
         # link.EXE and a stray ccache.exe CMake otherwise picks over cl.exe and the real
         # linker, while the rest of PATH stays in the native form that vcvarsall set up
         CL_DIR=$(dirname "$(which cl.exe)")
-        WIN_KIT=$(find "$(cygpath -u "${WindowsSDKDir:-}/bin")" -maxdepth 1 -name "10.*" -type d 2>/dev/null | sort | tail -1)
+        WIN_KIT=$(find "$(cygpath -u "${WindowsSDKDir:-${WINDOWSSDKDIR:-}}/bin")" -maxdepth 1 -name "10.*" -type d 2>/dev/null | sort | tail -1)
         NEW_PATH=""
         PREVP="$PATH"
         PREVA=$IFS
@@ -232,7 +232,9 @@ case $PLATFORM in
         # keep only the MSVC directories in native form for CMake's environment detection
         CL_WIN=$(cygpath -w "$CL_DIR")
         SDK_WIN=""
-        [[ -n "$WIN_KIT" ]] && SDK_WIN=$(cygpath -w "$WIN_KIT/arm64")
+        WINDOWS_KIT_ARCHITECTURE=x64
+        [[ $PLATFORM == windows-arm64 ]] && WINDOWS_KIT_ARCHITECTURE=arm64
+        [[ -n "$WIN_KIT" ]] && SDK_WIN=$(cygpath -w "$WIN_KIT/$WINDOWS_KIT_ARCHITECTURE")
         export PATH="$CL_WIN${SDK_WIN:+:$SDK_WIN}:$NEW_PATH"
         # drop any directory that contains only a stray ccache.exe (no cl.exe next to it)
         CCACHE_PATH=$(command -v ccache.exe 2>/dev/null || true)

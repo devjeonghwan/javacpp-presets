@@ -160,7 +160,7 @@
               <propertyFile>${basedir}/src/main/resources/org/bytedeco/javacpp/properties/windows-arm64-mingw.properties</propertyFile>
               <compilerOptions>
                 <compilerOption>-static-libgcc</compilerOption>
-                <compilerOption>-static</compilerOption>
+                <compilerOption>-static-libstdc++</compilerOption>
               </compilerOptions>
             </configuration>
           </plugin>

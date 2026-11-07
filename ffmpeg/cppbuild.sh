@@ -7,32 +7,6 @@ if [[ -z "$PLATFORM" ]]; then
     exit
 fi
 
-if [[ $PLATFORM == windows-arm64 ]]; then
-    WINDOWS_KIT_DIRECTORY="${WindowsSDKDir:-${WINDOWSSDKDIR:-}}"
-    WINDOWS_KIT_VERSION="${WindowsSDKVersion:-${WINDOWSSDKVERSION:-}}"
-    WINDOWS_PROCESS_STATUS_LIBRARY=""
-    if [[ -n "$WINDOWS_KIT_DIRECTORY" && -n "$WINDOWS_KIT_VERSION" ]]; then
-        WINDOWS_PROCESS_STATUS_LIBRARY=$(cygpath -u "$WINDOWS_KIT_DIRECTORY/Lib/$WINDOWS_KIT_VERSION/um/arm64/psapi.lib")
-    fi
-    if [[ ! -f "$WINDOWS_PROCESS_STATUS_LIBRARY" ]]; then
-        IFS=';' read -r -a WINDOWS_LIBRARY_DIRECTORIES <<< "${LIB:-}"
-        for library_directory in "${WINDOWS_LIBRARY_DIRECTORIES[@]}"; do
-            [[ -z "$library_directory" ]] && continue
-            library_directory=$(cygpath -u "$library_directory")
-            library_directory="${library_directory%/}"
-            if [[ "${library_directory,,}" == */um/arm64 && -f "$library_directory/psapi.lib" ]]; then
-                WINDOWS_PROCESS_STATUS_LIBRARY="$library_directory/psapi.lib"
-                break
-            fi
-        done
-    fi
-    if [[ ! -f "$WINDOWS_PROCESS_STATUS_LIBRARY" ]]; then
-        echo "Error: ARM64 psapi.lib not found in WindowsSDKDir/WINDOWSSDKDIR with WindowsSDKVersion/WINDOWSSDKVERSION, or in LIB"
-        exit 1
-    fi
-    echo "Using ARM64 psapi.lib: $WINDOWS_PROCESS_STATUS_LIBRARY"
-fi
-
 DISABLE="--disable-iconv --disable-sdl2 --disable-bzlib --disable-lzma --disable-linux-perf --disable-xlib"
 ENABLE="--enable-shared --enable-version3 --enable-runtime-cpudetect --enable-zlib --enable-libmp3lame --enable-libspeex --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libvo-amrwbenc --enable-openssl --enable-libopenh264 --enable-libvpx --enable-libfreetype --enable-libharfbuzz --enable-libopus --enable-libxml2 --enable-libsrt --enable-libwebp --enable-libaom --enable-libsvtav1 --enable-libzimg --enable-libkvazaar"
 ENABLE_VULKAN="--enable-vulkan --enable-hwaccel=h264_vulkan --enable-hwaccel=hevc_vulkan --enable-hwaccel=av1_vulkan"
@@ -172,6 +146,7 @@ tar --totals -xzf ../zimg-release-$ZIMG_VERSION.tar.gz
 tar --totals -xzf ../mpp-$MPP_VERSION.tar.gz
 tar --totals -xzf ../kvazaar-$KVAZAAR_VERSION.tar.gz
 tar --totals -xjf ../ffmpeg-$FFMPEG_VERSION.tar.bz2
+patch -Np1 -d ffmpeg-$FFMPEG_VERSION < ../../ffmpeg-vulkan-stubs.patch
 
 if [[ $PLATFORM == android-* ]]; then
     # the Vulkan headers of the NDK (1.3.275 as of r29) are older than the 1.3.277 that FFmpeg requires,
@@ -2619,12 +2594,7 @@ EOF
             fi
             make -j $MAKEJ
             make install
-            # Match the preset import library names and reuse FFmpeg's MSVC libraries.
-            for library_name in avcodec avdevice avfilter avformat avutil swresample swscale; do
-                cp -f "$INSTALL_PATH/lib/lib$library_name.dll.a" "$INSTALL_PATH/lib/$library_name.dll.a"
-                cp -f "$INSTALL_PATH/bin/$library_name.lib" "$INSTALL_PATH/lib/$library_name.lib"
-            done
-            cp -f "$WINDOWS_PROCESS_STATUS_LIBRARY" "$INSTALL_PATH/lib/psapi.lib"
+
         else
         PKG_CONFIG_PATH=../lib/pkgconfig/ ./configure --prefix=.. $DISABLE $ENABLE $EXTRA_CONFIG $ENABLE_VULKAN --enable-cuda --enable-cuvid --enable-nvenc --enable-libmfx --enable-w32threads --enable-indev=dshow --target-os=mingw32 --cc="gcc" --cxx="g++" --extra-cflags="-DLIBXML_STATIC -DKVZ_STATIC_LIB -I../include/ -I../include/libxml2 -I../include/mfx/ -I../include/svt-av1 $EXTRA_CFLAGS" --extra-ldflags="-L../lib/ $EXTRA_LDFLAGS" --extra-libs="-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lgcc_eh -lWs2_32 -lcrypt32 -lpthread -lz -lm -Wl,-Bdynamic -lole32 -luuid $EXTRA_LIBS" || cat ffbuild/config.log
         if ! grep -q "^#define HAVE_OPENCL_D3D11 1" config.h; then
@@ -2644,6 +2614,8 @@ EOF
         echo "--------------------"
         echo ""
         cd zimg-release-$ZIMG_VERSION
+        autoreconf -iv
+        ./configure --prefix=$INSTALL_PATH --disable-shared --with-pic --build=x86_64-w64-mingw32
         make -j $MAKEJ V=0
         make install
         echo ""
@@ -2707,11 +2679,6 @@ EOF
         make -j $MAKEJ V=0
         make install
         cd ../x265-$X265/build/linux
-        if [[ $PLATFORM == windows-arm64 ]]; then
-            # x265 has no Windows on ARM support yet, so only install its headers
-            make install 2>/dev/null || true
-            cp -a ../../../source/x265.h ../../../source/x265_config.h $INSTALL_PATH/include/ 2>/dev/null || true
-        else
         # from x265 multilib.sh
         mkdir -p 8bit 10bit 12bit
 
@@ -2740,7 +2707,6 @@ SAVE
 END
 EOF
         make install
-        fi
         # ----
         cd ../../../
         cd ../libvpx-$VPX_VERSION
@@ -2757,14 +2723,9 @@ EOF
         make install
         cd ../mfx_dispatch-$MFX_VERSION
         sedinplace 's:${SOURCES}:${SOURCES} src/mfx_driver_store_loader.cpp:g' CMakeLists.txt
-        if [[ $PLATFORM == windows-arm64 ]]; then
-            # libmfx has no Windows on ARM support yet, so only install its headers
-            make -C mfx_dispatch install-exec 2>/dev/null || make -C mfx_dispatch install || true
-        else
-            CC="gcc -m64" CXX="g++ -m64" $CMAKE -G "MSYS Makefiles" -DCMAKE_INSTALL_PREFIX=$INSTALL_PATH -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release .
-            make -j $MAKEJ
-            make install
-        fi
+        CC="gcc -m64" CXX="g++ -m64" $CMAKE -G "MSYS Makefiles" -DCMAKE_INSTALL_PREFIX=$INSTALL_PATH -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release .
+        make -j $MAKEJ
+        make install
         cd ../nv-codec-headers-n$NVCODEC_VERSION
         make install PREFIX=$INSTALL_PATH
         cd ../harfbuzz-$HARFBUZZ_VERSION
@@ -2794,44 +2755,11 @@ EOF
         make install
         cd ..
         cd ../kvazaar-$KVAZAAR_VERSION
-        if [[ $PLATFORM == windows-arm64 ]]; then
-            # kvazaar has no Windows on ARM support yet, so only install its headers
-            ./configure --prefix=$INSTALL_PATH || true
-            make install 2>/dev/null || true
-            cp -a include/kvazaar.h $INSTALL_PATH/include/ 2>/dev/null || true
-        else
         ./autogen.sh
         CC="gcc -m64" CFLAGS="-m64 -DKVZ_STATIC_LIB" ./configure --prefix=$INSTALL_PATH --disable-shared --enable-static --host=x86_64-w64-mingw32
         make -j $MAKEJ V=0
         make install
-        fi
         cd ../ffmpeg-$FFMPEG_VERSION
-        if [[ $PLATFORM == windows-arm64 ]]; then
-            # native build with the MSYS2 CLANGARM64 toolchain and lld as linker
-            AR=llvm-ar RANLIB=llvm-ranlib
-            # x265, mfx_dispatch and kvazaar only installed their headers above,
-            # and Vulkan, CUDA, libmfx and kvazaar have no Windows on ARM support
-            PKG_CONFIG_PATH=../lib/pkgconfig/ ./configure --prefix=.. $DISABLE $ENABLE $EXTRA_CONFIG --disable-vulkan --disable-cuda --disable-cuvid --disable-nvenc --disable-libmfx --disable-libkvazaar --enable-w32threads --enable-indev=dshow --target-os=mingw32 --arch=aarch64 --host=aarch64-w64-windows-gnu --cc="gcc" --cxx="g++" --ar="$AR" --ranlib="$RANLIB" --extra-cflags="-DLIBXML_STATIC -I../include/ -I../include/libxml2 -I../include/mfx/ -I../include/svt-av1 $EXTRA_CFLAGS" --extra-ldflags="-L../lib/ $EXTRA_LDFLAGS" --extra-libs="-static-libgcc -static -lWs2_32 -lcrypt32 -lpthread -lz -lm -lole32 -luuid $EXTRA_LIBS" || cat ffbuild/config.log
-            if ! grep -q "^#define HAVE_OPENCL_D3D11 1" config.h; then
-                echo "Error: FFmpeg configured OpenCL without D3D11 sharing support"
-                cat ffbuild/config.log
-                exit 1
-            fi
-            make -j $MAKEJ
-            make install
-            # the GNU toolchain names its import libraries lib$n.dll.a, so copy them
-            # under the names the presets link against, generate the MSVC import
-            # libraries from the .def files installed along with the DLLs, and make
-            # psapi.lib of the Windows SDK reachable for those presets
-            if [[ -z "${WindowsSDKDir:-}" ]]; then
-                WindowsSDKDir="/c/Program Files (x86)/Windows Kits/10"
-            fi
-            for n in avcodec avdevice avfilter avformat avutil swresample swscale; do
-                cp -f lib/lib$n.dll.a lib/$n.dll.a
-                [ -f lib/$n.lib ] || (cd lib && lib.exe //NOLOGO //DEF:$n-*.def //OUT:$n.lib //MACHINE:ARM64)
-            done
-            cp -f "${WindowsSDKDir%/}/Lib/ARM64/psapi.lib" lib/psapi.lib
-        else
         PKG_CONFIG_PATH=../lib/pkgconfig/ ./configure --prefix=.. $DISABLE $ENABLE $EXTRA_CONFIG $ENABLE_VULKAN --enable-cuda --enable-cuvid --enable-nvenc --enable-libmfx --enable-w32threads --enable-indev=dshow --target-os=mingw32 --cc="gcc -m64" --cxx="g++ -m64" --extra-cflags="-DLIBXML_STATIC -DKVZ_STATIC_LIB -I../include/ -I../include/libxml2 -I../include/mfx/ -I../include/svt-av1 $EXTRA_CFLAGS" --extra-ldflags="-L../lib/ $EXTRA_LDFLAGS" --extra-libs="-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lgcc_eh -lWs2_32 -lcrypt32 -lpthread -lz -lm -Wl,-Bdynamic -lole32 -luuid $EXTRA_LIBS" || cat ffbuild/config.log
         if ! grep -q "^#define HAVE_OPENCL_D3D11 1" config.h; then
             echo "Error: FFmpeg configured OpenCL without D3D11 sharing support"
@@ -2840,7 +2768,6 @@ EOF
         fi
         make -j $MAKEJ
         make install
-        fi
         ;;
     *)
         echo "Error: Platform \"$PLATFORM\" is not supported"

@@ -14,7 +14,7 @@ sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 argument_parser = argparse.ArgumentParser()
 argument_parser.add_argument('--plan', action='store_true')
-argument_parser.add_argument('--scope', choices=['full', 'ffmpeg'], default=os.environ.get('CI_LOCAL_BUILD_SCOPE', 'full'))
+argument_parser.add_argument('--scope', choices=['full', 'core', 'ffmpeg'], default=os.environ.get('CI_LOCAL_BUILD_SCOPE', 'full'))
 arguments = argument_parser.parse_args()
 repository = Path(__file__).resolve().parents[2]
 namespace = {'maven': 'http://maven.apache.org/POM/4.0.0'}
@@ -29,17 +29,19 @@ module_dependencies = {
     'ffmpeg': ['opencl'],
     'pytorch': ['openblas', 'cpython', 'numpy', 'cuda'],
 }
-if arguments.scope not in ['full', 'ffmpeg']:
+if arguments.scope not in ['full', 'core', 'ffmpeg']:
     argument_parser.error('Unsupported build scope: ' + arguments.scope)
 if arguments.scope == 'ffmpeg':
     module_dependencies = {module_name: module_dependencies[module_name] for module_name in ['opencl', 'ffmpeg']}
+elif arguments.scope == 'core':
+    module_dependencies = {module_name: dependencies for module_name, dependencies in module_dependencies.items() if module_name != 'ffmpeg'}
 parent_version = element_tree.parse(repository / 'pom.xml').getroot().findtext('maven:version', namespaces=namespace)
 module_versions = {
     module_name: element_tree.parse(repository / module_name / 'pom.xml').getroot().findtext('maven:version', namespaces=namespace)
     for module_name in module_dependencies
 }
 if arguments.plan:
-    print(json.dumps({'modules': module_dependencies, 'versions': module_versions, 'extra_variant': 'ffmpeg-gpl', 'local_repository': '.ci-maven', 'phase': 'install'}, indent=2))
+    print(json.dumps({'modules': module_dependencies, 'versions': module_versions, 'extra_variant': 'ffmpeg-gpl' if 'ffmpeg' in module_dependencies else None, 'local_repository': '.ci-maven', 'phase': 'install'}, indent=2))
     sys.exit(0)
 
 if os.environ.get('CI_DEPLOY_PLATFORM') != 'windows-arm64':
