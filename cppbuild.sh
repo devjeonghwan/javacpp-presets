@@ -126,26 +126,26 @@ function download {
     mkdir -p "$TOP_PATH/downloads"
     if [[ ! -e "$TOP_PATH/downloads/$2" ]]; then
         echo "Downloading $1"
-        if curl -L "$1" -o "$TOP_PATH/downloads/$2.part" --fail; then
-            DOWNLOAD_STATUS=0
-        else
-            DOWNLOAD_STATUS=$?
+        curl -L "$1" -o "$TOP_PATH/downloads/$2" --fail
+        DOWNLOADSTATUS=$?
+        if [ "$DOWNLOADSTATUS" -eq 28 ]
+        then
+		echo "Download timed out, waiting 5 minutes then trying again"
+		rm "$TOP_PATH/downloads/$2"
+		sleep 600
+        	curl -L "$1" -o "$TOP_PATH/downloads/$2" --fail
+        	if [ $? -ne 0 ]
+        	then
+			echo "File still could not be downloaded!"
+			rm "$TOP_PATH/downloads/$2"
+			exit 1
+    		fi
+        elif [ "$DOWNLOADSTATUS" -ne 0 ]
+        then
+		echo "File could not be downloaded!"
+		rm "$TOP_PATH/downloads/$2"
+		exit 1
         fi
-        if [ "$DOWNLOAD_STATUS" -eq 28 ]; then
-            echo "Download timed out, waiting 5 minutes then trying again"
-            rm -f "$TOP_PATH/downloads/$2.part"
-            sleep 300
-            if ! curl -L "$1" -o "$TOP_PATH/downloads/$2.part" --fail; then
-                echo "File still could not be downloaded!"
-                rm -f "$TOP_PATH/downloads/$2.part"
-                exit 1
-            fi
-        elif [ "$DOWNLOAD_STATUS" -ne 0 ]; then
-            echo "File could not be downloaded!"
-            rm -f "$TOP_PATH/downloads/$2.part"
-            exit 1
-        fi
-        mv -f "$TOP_PATH/downloads/$2.part" "$TOP_PATH/downloads/$2"
     fi
     ln -sf "$TOP_PATH/downloads/$2" "$2"
 }

@@ -1,1 +1,3 @@
-*.patch text eol=lf
+ffmpeg/openssl-mingwarm64.patch text eol=lf
+ffmpeg/ffmpeg-vulkan-stubs.patch text eol=lf
+onnxruntime/kleidiai-windows.patch text eol=lf
