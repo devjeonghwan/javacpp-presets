@@ -32,15 +32,12 @@ jobs:
       - name: Create temporary directory
         shell: cmd
         run: if not exist "%TEMP%" mkdir "%TEMP%"
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
       - uses: al-cheb/configure-pagefile-action@v1.3
         with:
           minimum-size: 32GB
           maximum-size: 64GB
           disk-root: 'C:'
-      - uses: ./.github/actions/deploy-windows
+      - uses: devjeonghwan/javacpp-presets/.github/actions/deploy-windows@test/windows-arm64-master-20261108
       - name: Upload build logs
         if: always()
         uses: actions/upload-artifact@v4
