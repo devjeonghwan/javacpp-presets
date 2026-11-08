@@ -1,0 +1,52 @@
+name: windows-arm64-local-build
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: windows-arm64-local-build-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  windows-arm64:
+    name: windows-arm64-${{ matrix.scope }}
+    strategy:
+      fail-fast: false
+      matrix:
+        scope: [core, ffmpeg]
+    runs-on: windows-11-arm
+    timeout-minutes: 360
+    env:
+      CI_LOCAL_BUILD: 1
+      CI_LOCAL_BUILD_SCOPE: ${{ matrix.scope }}
+      CI_DEPLOY_PLATFORM: windows-arm64
+      CI_DEPLOY_MODULE: windows-arm64-local-build
+      CI_DEPLOY_NEED_CUDA: ${{ matrix.scope != 'ffmpeg' && '1' || '' }}
+      CI_DEPLOY_NEED_CACHE: 1
+      CI_DEPLOY_NEED_NVCODEC: ${{ matrix.scope != 'ffmpeg' && '1' || '' }}
+      CI_DEPLOY_USERNAME: ''
+      CI_DEPLOY_PASSWORD: ''
+      TEMP: C:\temp
+      TMP: C:\temp
+      BUILD_DIR: C:\build
+    steps:
+      - name: Create temporary directory
+        shell: cmd
+        run: if not exist "%TEMP%" mkdir "%TEMP%"
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: al-cheb/configure-pagefile-action@v1.3
+        with:
+          minimum-size: 32GB
+          maximum-size: 64GB
+          disk-root: 'C:'
+      - uses: ./.github/actions/deploy-windows
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-arm64-local-build-logs-${{ matrix.scope }}
+          path: .ci-logs/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
