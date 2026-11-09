@@ -42,6 +42,21 @@ jobs:
           Get-Item -LiteralPath $installerPath | Select-Object FullName, Length
           Get-FileHash -LiteralPath $installerPath -Algorithm SHA256
           "CUDA download completed at $([DateTime]::UtcNow.ToString('o'))" >> $env:GITHUB_STEP_SUMMARY
+      - name: Inspect CUDA package metadata
+        shell: pwsh
+        timeout-minutes: 15
+        run: |
+          $installerPath = Join-Path $env:RUNNER_TEMP 'cuda_13.4.2_windows_arm64.exe'
+          $metadataDirectory = Join-Path $env:RUNNER_TEMP 'cuda-install-diagnostics/package-metadata'
+          New-Item -ItemType Directory -Force -Path $metadataDirectory | Out-Null
+          & 7z.exe x -y "-o$metadataDirectory" $installerPath '*.nvi' 'setup.cfg' -r
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $metadataFiles = Get-ChildItem -LiteralPath $metadataDirectory -Filter '*.nvi' -Recurse | Sort-Object FullName
+          foreach ($metadataFile in $metadataFiles) {
+            "Package metadata: $($metadataFile.FullName)"
+            Select-String -LiteralPath $metadataFile.FullName -Pattern '<nvi\b', '<string\b[^>]*\bname="version"' | ForEach-Object { $_.Line }
+          }
+          Get-ChildItem -LiteralPath $metadataDirectory -Filter 'cccl.nvi' -Recurse | ForEach-Object { Get-Content -LiteralPath $_.FullName }
       - name: Install CUDA build components
         shell: pwsh
         timeout-minutes: 35
@@ -49,7 +64,9 @@ jobs:
           $installerPath = Join-Path $env:RUNNER_TEMP 'cuda_13.4.2_windows_arm64.exe'
           $diagnosticDirectory = Join-Path $env:RUNNER_TEMP 'cuda-install-diagnostics'
           "CUDA installation started at $([DateTime]::UtcNow.ToString('o'))"
-          $installationProcess = Start-Process -FilePath $installerPath -ArgumentList '-s nvcc_13.4 crt_13.4 cudart_13.4 cccl_13.4 nvvm_13.4 nvptxcompiler_13.4 nvjitlink_13.4 nvfatbin_13.4 tileiras_13.4 cublas_13.4 cublas_dev_13.4 cufft_13.4 cufft_dev_13.4 curand_13.4 curand_dev_13.4 cusolver_13.4 cusolver_dev_13.4 cusparse_13.4 cusparse_dev_13.4 npp_13.4 npp_dev_13.4 nvjpeg_13.4 nvjpeg_dev_13.4 nvrtc_13.4 nvrtc_dev_13.4 cupti_13.4 cuda_profiler_api_13.4 nvml_dev_13.4 nvtx_13.4 visual_studio_integration_13.4' -WindowStyle Hidden -Wait -PassThru
+          $installationArguments = '-s nvcc_13.4 crt_13.4 cudart_13.4 cccl_13.4 nvvm_13.4 nvptxcompiler_13.4 nvjitlink_13.4 nvfatbin_13.4 tileiras_13.4 cublas_13.4 cublas_dev_13.4 cufft_13.4 cufft_dev_13.4 curand_13.4 curand_dev_13.4 cusolver_13.4 cusolver_dev_13.4 cusparse_13.4 cusparse_dev_13.4 npp_13.4 npp_dev_13.4 nvjpeg_13.4 nvjpeg_dev_13.4 nvrtc_13.4 nvrtc_dev_13.4 cupti_13.4 cuda_profiler_api_13.4 nvml_dev_13.4 nvtx_13.4 visual_studio_integration_13.4'
+          $installationArguments += ' -log:"' + $diagnosticDirectory + '" -loglevel:6'
+          $installationProcess = Start-Process -FilePath $installerPath -ArgumentList $installationArguments -WindowStyle Hidden -Wait -PassThru
           $installationStatus = $installationProcess.ExitCode
           "CUDA installer exit code: $installationStatus" | Tee-Object -FilePath "$diagnosticDirectory/installer-exit.txt"
           "CUDA installer exited with $installationStatus at $([DateTime]::UtcNow.ToString('o'))" >> $env:GITHUB_STEP_SUMMARY
