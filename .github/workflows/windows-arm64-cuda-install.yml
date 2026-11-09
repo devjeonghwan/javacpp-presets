@@ -1,4 +1,4 @@
-﻿name: windows-arm64-cuda-install
+name: windows-arm64-cuda-install
 on:
   push:
     branches:
@@ -42,14 +42,14 @@ jobs:
           Get-Item -LiteralPath $installerPath | Select-Object FullName, Length
           Get-FileHash -LiteralPath $installerPath -Algorithm SHA256
           "CUDA download completed at $([DateTime]::UtcNow.ToString('o'))" >> $env:GITHUB_STEP_SUMMARY
-      - name: Install minimal CUDA components
+      - name: Install CUDA build components
         shell: pwsh
         timeout-minutes: 35
         run: |
           $installerPath = Join-Path $env:RUNNER_TEMP 'cuda_13.5.0_windows_arm64.exe'
           $diagnosticDirectory = Join-Path $env:RUNNER_TEMP 'cuda-install-diagnostics'
           "CUDA installation started at $([DateTime]::UtcNow.ToString('o'))"
-          $installationProcess = Start-Process -FilePath $installerPath -ArgumentList '-s nvcc_13.5 cudart_13.5 cccl_13.5' -WindowStyle Hidden -Wait -PassThru
+          $installationProcess = Start-Process -FilePath $installerPath -ArgumentList '-s nvcc_13.5 crt_13.5 cudart_13.5 cccl_13.5 nvvm_13.5 nvptxcompiler_13.5 nvjitlink_13.5 nvfatbin_13.5 tileiras_13.5 cublas_13.5 cublas_dev_13.5 cufft_13.5 cufft_dev_13.5 curand_13.5 curand_dev_13.5 cusolver_13.5 cusolver_dev_13.5 cusparse_13.5 cusparse_dev_13.5 npp_13.5 npp_dev_13.5 nvjpeg_13.5 nvjpeg_dev_13.5 nvrtc_13.5 nvrtc_dev_13.5 cupti_13.5 cuda_profiler_api_13.5 nvml_dev_13.5 nvtx_13.5 visual_studio_integration_13.5' -WindowStyle Hidden -Wait -PassThru
           $installationStatus = $installationProcess.ExitCode
           "CUDA installer exit code: $installationStatus" | Tee-Object -FilePath "$diagnosticDirectory/installer-exit.txt"
           "CUDA installer exited with $installationStatus at $([DateTime]::UtcNow.ToString('o'))" >> $env:GITHUB_STEP_SUMMARY
