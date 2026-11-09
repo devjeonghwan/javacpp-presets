@@ -19,9 +19,15 @@ jobs:
           $diagnosticDirectory = Join-Path $env:RUNNER_TEMP 'cuda-install-diagnostics'
           New-Item -ItemType Directory -Force -Path $diagnosticDirectory | Out-Null
           Get-CimInstance Win32_OperatingSystem |
-            Select-Object Caption, OSArchitecture, LastBootUpTime, TotalVisibleMemorySize, FreePhysicalMemory |
+            Select-Object Caption, Version, BuildNumber, OSArchitecture, LastBootUpTime, TotalVisibleMemorySize, FreePhysicalMemory |
             Format-List | Out-String | Tee-Object -FilePath "$diagnosticDirectory/runner.txt"
           Get-Volume | Select-Object DriveLetter, Size, SizeRemaining | Format-Table
+          Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' |
+            Select-Object DisplayVersion, CurrentBuild, UBR | Format-List
+          Get-CimInstance Win32_VideoController -ErrorAction Continue |
+            Select-Object Name, DriverVersion, DriverDate, PNPDeviceID | Format-List
+          Get-CimInstance Win32_PnPSignedDriver -Filter "DeviceClass = 'DISPLAY'" -ErrorAction Continue |
+            Select-Object DeviceName, DriverProviderName, DriverVersion, InfName | Format-List
           "Image: $env:ImageOS $env:ImageVersion"
           "TEMP=$env:TEMP"
           "TMP=$env:TMP"
@@ -36,14 +42,14 @@ jobs:
           Get-Item -LiteralPath $installerPath | Select-Object FullName, Length
           Get-FileHash -LiteralPath $installerPath -Algorithm SHA256
           "CUDA download completed at $([DateTime]::UtcNow.ToString('o'))" >> $env:GITHUB_STEP_SUMMARY
-      - name: Install CUDA with the existing silent command
+      - name: Install minimal CUDA components
         shell: pwsh
         timeout-minutes: 35
         run: |
           $installerPath = Join-Path $env:RUNNER_TEMP 'cuda_13.5.0_windows_arm64.exe'
           $diagnosticDirectory = Join-Path $env:RUNNER_TEMP 'cuda-install-diagnostics'
           "CUDA installation started at $([DateTime]::UtcNow.ToString('o'))"
-          $installationProcess = Start-Process -FilePath $installerPath -ArgumentList '-s' -WindowStyle Hidden -Wait -PassThru
+          $installationProcess = Start-Process -FilePath $installerPath -ArgumentList '-s nvcc_13.5 cudart_13.5 cccl_13.5' -WindowStyle Hidden -Wait -PassThru
           $installationStatus = $installationProcess.ExitCode
           "CUDA installer exit code: $installationStatus" | Tee-Object -FilePath "$diagnosticDirectory/installer-exit.txt"
           "CUDA installer exited with $installationStatus at $([DateTime]::UtcNow.ToString('o'))" >> $env:GITHUB_STEP_SUMMARY
