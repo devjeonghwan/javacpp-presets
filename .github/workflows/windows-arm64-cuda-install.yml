@@ -64,7 +64,7 @@ jobs:
           $installerPath = Join-Path $env:RUNNER_TEMP 'cuda_13.4.2_windows_arm64.exe'
           $diagnosticDirectory = Join-Path $env:RUNNER_TEMP 'cuda-install-diagnostics'
           "CUDA installation started at $([DateTime]::UtcNow.ToString('o'))"
-          $installationArguments = '-s nvcc_13.4 crt_13.4 cudart_13.4 cccl_13.4 nvvm_13.4 nvptxcompiler_13.4 nvjitlink_13.4 nvfatbin_13.4 tileiras_13.4 cublas_13.4 cublas_dev_13.4 cufft_13.4 cufft_dev_13.4 curand_13.4 curand_dev_13.4 cusolver_13.4 cusolver_dev_13.4 cusparse_13.4 cusparse_dev_13.4 npp_13.4 npp_dev_13.4 nvjpeg_13.4 nvjpeg_dev_13.4 nvrtc_13.4 nvrtc_dev_13.4 cupti_13.4 cuda_profiler_api_13.4 nvml_dev_13.4 nvtx_13.4 visual_studio_integration_13.4'
+          $installationArguments = '-s nvcc_13.4 crt_13.4 cudart_13.4 thrust_13.4 nvvm_13.4 nvptxcompiler_13.4 nvjitlink_13.4 nvfatbin_13.4 tileiras_13.4 cublas_13.4 cublas_dev_13.4 cufft_13.4 cufft_dev_13.4 curand_13.4 curand_dev_13.4 cusolver_13.4 cusolver_dev_13.4 cusparse_13.4 cusparse_dev_13.4 npp_13.4 npp_dev_13.4 nvjpeg_13.4 nvjpeg_dev_13.4 nvrtc_13.4 nvrtc_dev_13.4 cupti_13.4 cuda_profiler_api_13.4 nvml_dev_13.4 nvtx_13.4 visual_studio_integration_13.4'
           $installationArguments += ' -log:"' + $diagnosticDirectory + '" -loglevel:6'
           $installationProcess = Start-Process -FilePath $installerPath -ArgumentList $installationArguments -WindowStyle Hidden -Wait -PassThru
           $installationStatus = $installationProcess.ExitCode
