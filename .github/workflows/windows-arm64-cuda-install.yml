@@ -1,4 +1,4 @@
-name: windows-arm64-cuda-install
+﻿name: windows-arm64-cuda-install
 on:
   push:
     branches:
@@ -26,64 +26,45 @@ jobs:
           "TEMP=$env:TEMP"
           "TMP=$env:TMP"
           "Runner inspection completed at $([DateTime]::UtcNow.ToString('o'))" >> $env:GITHUB_STEP_SUMMARY
-      - name: Download CUDA 13.4.2 ARM64
+      - name: Download CUDA 13.5.0 ARM64
         shell: pwsh
         timeout-minutes: 35
         run: |
-          $installerPath = Join-Path $env:RUNNER_TEMP 'cuda_13.4.2_windows_arm64.exe'
-          curl.exe --fail --location --retry 3 --connect-timeout 30 --max-time 1800 --output $installerPath https://developer.download.nvidia.com/compute/cuda/13.4.2/local_installers/cuda_13.4.2_windows_arm64.exe
+          $installerPath = Join-Path $env:RUNNER_TEMP 'cuda_13.5.0_windows_arm64.exe'
+          curl.exe --fail --location --retry 3 --connect-timeout 30 --max-time 1800 --output $installerPath https://developer.download.nvidia.com/compute/cuda/13.5.0/local_installers/cuda_13.5.0_windows_arm64.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Get-Item -LiteralPath $installerPath | Select-Object FullName, Length
           Get-FileHash -LiteralPath $installerPath -Algorithm SHA256
           "CUDA download completed at $([DateTime]::UtcNow.ToString('o'))" >> $env:GITHUB_STEP_SUMMARY
-      - name: List CUDA archive contents
+      - name: Install CUDA with the existing silent command
+        shell: pwsh
+        timeout-minutes: 35
+        run: |
+          $installerPath = Join-Path $env:RUNNER_TEMP 'cuda_13.5.0_windows_arm64.exe'
+          $diagnosticDirectory = Join-Path $env:RUNNER_TEMP 'cuda-install-diagnostics'
+          "CUDA installation started at $([DateTime]::UtcNow.ToString('o'))"
+          $installationProcess = Start-Process -FilePath $installerPath -ArgumentList '-s' -WindowStyle Hidden -Wait -PassThru
+          $installationStatus = $installationProcess.ExitCode
+          "CUDA installer exit code: $installationStatus" | Tee-Object -FilePath "$diagnosticDirectory/installer-exit.txt"
+          "CUDA installer exited with $installationStatus at $([DateTime]::UtcNow.ToString('o'))" >> $env:GITHUB_STEP_SUMMARY
+          if ($installationStatus -ne 0 -and $installationStatus -ne 3010) { exit $installationStatus }
+          if ($installationStatus -eq 3010) { Write-Warning 'The installer requested a reboot; this workflow will not reboot the runner.' }
+      - name: Verify CUDA installation
         shell: pwsh
         run: |
-          $installerPath = Join-Path $env:RUNNER_TEMP 'cuda_13.4.2_windows_arm64.exe'
-          $diagnosticDirectory = Join-Path $env:RUNNER_TEMP 'cuda-install-diagnostics'
-          $archiveTool = (Get-Command 7z.exe -ErrorAction Stop).Source
-          & $archiveTool l -slt $installerPath > "$diagnosticDirectory/archive-listing.txt"
+          $cudaDirectory = Join-Path $env:ProgramFiles 'NVIDIA GPU Computing Toolkit/CUDA/v13.5'
+          if (-not (Test-Path "$cudaDirectory/include/cuda.h")) { throw 'CUDA header is missing.' }
+          $compilerPath = Get-ChildItem -LiteralPath $cudaDirectory -Filter nvcc.exe -Recurse | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $compilerPath) { throw 'nvcc.exe was not installed.' }
+          & $compilerPath --version
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Get-Content "$diagnosticDirectory/archive-listing.txt" -TotalCount 60
-          'Archive listing completed without executing the installer.' >> $env:GITHUB_STEP_SUMMARY
-      - name: Extract CUDA archive
-        shell: pwsh
-        timeout-minutes: 30
-        run: |
-          $installerPath = Join-Path $env:RUNNER_TEMP 'cuda_13.4.2_windows_arm64.exe'
-          $extractionDirectory = Join-Path $env:RUNNER_TEMP 'cuda-arm64-extracted'
-          $diagnosticDirectory = Join-Path $env:RUNNER_TEMP 'cuda-install-diagnostics'
-          $archiveTool = (Get-Command 7z.exe -ErrorAction Stop).Source
-          & $archiveTool x $installerPath "-o$extractionDirectory" -y -bb0 -bsp0 | Tee-Object -FilePath "$diagnosticDirectory/extraction.txt"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          "Archive extraction completed at $([DateTime]::UtcNow.ToString('o'))" >> $env:GITHUB_STEP_SUMMARY
-      - name: Record extracted file inventory
-        shell: pwsh
-        run: |
-          $extractionDirectory = Join-Path $env:RUNNER_TEMP 'cuda-arm64-extracted'
-          $diagnosticDirectory = Join-Path $env:RUNNER_TEMP 'cuda-install-diagnostics'
-          $files = @(Get-ChildItem -LiteralPath $extractionDirectory -File -Recurse)
-          $files | ForEach-Object {
-            [pscustomobject]@{
-              Path = [System.IO.Path]::GetRelativePath($extractionDirectory, $_.FullName)
-              Bytes = $_.Length
-            }
-          } | ConvertTo-Json -Depth 3 | Set-Content "$diagnosticDirectory/files.json"
-          Get-ChildItem -LiteralPath $extractionDirectory |
-            Select-Object Mode, Name, Length | Format-Table -AutoSize |
-            Out-String -Width 240 | Tee-Object -FilePath "$diagnosticDirectory/top-level.txt"
-          $files | Where-Object { $_.Name -match '^(cuda\.h|nvcc\.exe|cudart.*\.(lib|dll)|cublas.*\.(lib|dll)|cusparse.*\.(lib|dll)|nvrtc.*\.(lib|dll))$' } |
-            ForEach-Object { [System.IO.Path]::GetRelativePath($extractionDirectory, $_.FullName) } |
-            Tee-Object -FilePath "$diagnosticDirectory/toolkit-paths.txt"
-          "Extracted files: $($files.Count)" >> $env:GITHUB_STEP_SUMMARY
-          "Extracted bytes: $(($files | Measure-Object -Property Length -Sum).Sum)" >> $env:GITHUB_STEP_SUMMARY
-          Get-Volume | Select-Object DriveLetter, Size, SizeRemaining | Format-Table
           Get-CimInstance Win32_OperatingSystem | Select-Object LastBootUpTime, FreePhysicalMemory | Format-List
+          'CUDA installation and compiler version check passed. No presets were built.' >> $env:GITHUB_STEP_SUMMARY
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cuda-arm64-archive-inventory
+          name: cuda-arm64-install-diagnostics
           path: ${{ runner.temp }}/cuda-install-diagnostics/
           if-no-files-found: warn
           retention-days: 7
