@@ -32,12 +32,12 @@ jobs:
           "TEMP=$env:TEMP"
           "TMP=$env:TMP"
           "Runner inspection completed at $([DateTime]::UtcNow.ToString('o'))" >> $env:GITHUB_STEP_SUMMARY
-      - name: Download CUDA 13.5.0 ARM64
+      - name: Download CUDA 13.4.2 ARM64
         shell: pwsh
         timeout-minutes: 35
         run: |
-          $installerPath = Join-Path $env:RUNNER_TEMP 'cuda_13.5.0_windows_arm64.exe'
-          curl.exe --fail --location --retry 3 --connect-timeout 30 --max-time 1800 --output $installerPath https://developer.download.nvidia.com/compute/cuda/13.5.0/local_installers/cuda_13.5.0_windows_arm64.exe
+          $installerPath = Join-Path $env:RUNNER_TEMP 'cuda_13.4.2_windows_arm64.exe'
+          curl.exe --fail --location --retry 3 --connect-timeout 30 --max-time 1800 --output $installerPath https://developer.download.nvidia.com/compute/cuda/13.4.2/local_installers/cuda_13.4.2_windows_arm64.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Get-Item -LiteralPath $installerPath | Select-Object FullName, Length
           Get-FileHash -LiteralPath $installerPath -Algorithm SHA256
@@ -46,10 +46,10 @@ jobs:
         shell: pwsh
         timeout-minutes: 35
         run: |
-          $installerPath = Join-Path $env:RUNNER_TEMP 'cuda_13.5.0_windows_arm64.exe'
+          $installerPath = Join-Path $env:RUNNER_TEMP 'cuda_13.4.2_windows_arm64.exe'
           $diagnosticDirectory = Join-Path $env:RUNNER_TEMP 'cuda-install-diagnostics'
           "CUDA installation started at $([DateTime]::UtcNow.ToString('o'))"
-          $installationProcess = Start-Process -FilePath $installerPath -ArgumentList '-s nvcc_13.5 crt_13.5 cudart_13.5 cccl_13.5 nvvm_13.5 nvptxcompiler_13.5 nvjitlink_13.5 nvfatbin_13.5 tileiras_13.5 cublas_13.5 cublas_dev_13.5 cufft_13.5 cufft_dev_13.5 curand_13.5 curand_dev_13.5 cusolver_13.5 cusolver_dev_13.5 cusparse_13.5 cusparse_dev_13.5 npp_13.5 npp_dev_13.5 nvjpeg_13.5 nvjpeg_dev_13.5 nvrtc_13.5 nvrtc_dev_13.5 cupti_13.5 cuda_profiler_api_13.5 nvml_dev_13.5 nvtx_13.5 visual_studio_integration_13.5' -WindowStyle Hidden -Wait -PassThru
+          $installationProcess = Start-Process -FilePath $installerPath -ArgumentList '-s nvcc_13.4 crt_13.4 cudart_13.4 cccl_13.4 nvvm_13.4 nvptxcompiler_13.4 nvjitlink_13.4 nvfatbin_13.4 tileiras_13.4 cublas_13.4 cublas_dev_13.4 cufft_13.4 cufft_dev_13.4 curand_13.4 curand_dev_13.4 cusolver_13.4 cusolver_dev_13.4 cusparse_13.4 cusparse_dev_13.4 npp_13.4 npp_dev_13.4 nvjpeg_13.4 nvjpeg_dev_13.4 nvrtc_13.4 nvrtc_dev_13.4 cupti_13.4 cuda_profiler_api_13.4 nvml_dev_13.4 nvtx_13.4 visual_studio_integration_13.4' -WindowStyle Hidden -Wait -PassThru
           $installationStatus = $installationProcess.ExitCode
           "CUDA installer exit code: $installationStatus" | Tee-Object -FilePath "$diagnosticDirectory/installer-exit.txt"
           "CUDA installer exited with $installationStatus at $([DateTime]::UtcNow.ToString('o'))" >> $env:GITHUB_STEP_SUMMARY
@@ -58,8 +58,9 @@ jobs:
       - name: Verify CUDA installation
         shell: pwsh
         run: |
-          $cudaDirectory = Join-Path $env:ProgramFiles 'NVIDIA GPU Computing Toolkit/CUDA/v13.5'
+          $cudaDirectory = Join-Path $env:ProgramFiles 'NVIDIA GPU Computing Toolkit/CUDA/v13.4'
           if (-not (Test-Path "$cudaDirectory/include/cuda.h")) { throw 'CUDA header is missing.' }
+          if (-not (Test-Path "$cudaDirectory/lib/cmake/cccl/cccl-config.cmake")) { throw 'CCCL CMake configuration is missing.' }
           $compilerPath = Get-ChildItem -LiteralPath $cudaDirectory -Filter nvcc.exe -Recurse | Select-Object -First 1 -ExpandProperty FullName
           if (-not $compilerPath) { throw 'nvcc.exe was not installed.' }
           & $compilerPath --version
