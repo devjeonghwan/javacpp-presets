@@ -17,13 +17,7 @@ argument_parser.add_argument('--scope', choices=['pytorch'], default=os.environ.
 arguments = argument_parser.parse_args()
 repository = Path(__file__).resolve().parents[2]
 namespace = {'maven': 'http://maven.apache.org/POM/4.0.0'}
-module_dependencies = {
-    'openblas': [],
-    'cpython': [],
-    'cuda': [],
-    'numpy': ['openblas', 'cpython'],
-    'pytorch': ['openblas', 'cpython', 'cuda', 'numpy'],
-}
+module_dependencies = {'pytorch': []}
 parent_version = element_tree.parse(repository / 'pom.xml').getroot().findtext('maven:version', namespaces=namespace)
 module_versions = {
     module_name: element_tree.parse(repository / module_name / 'pom.xml').getroot().findtext('maven:version', namespaces=namespace)
@@ -46,7 +40,7 @@ summary_path.write_text('| Build | Result | Seconds |\n| --- | --- | ---: |\n', 
 results = {}
 
 maven_options = [
-    '-B', '-e', '-ntp', '-N',
+    '-B', '-e', '-ntp', '-N', '-U',
     '-Djavacpp.platform=windows-arm64',
     '-Dmaven.repo.local=' + str(local_repository),
     '-Dhttp.keepAlive=false',
