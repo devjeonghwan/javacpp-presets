@@ -62,7 +62,7 @@ if [[ $PLATFORM == windows* ]]; then
         cd build
         export CC="cl.exe"
         export CXX="cl.exe"
-        cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release ../libuv-v1.39.0 -DBUILD_TESTING=OFF
+        cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ../libuv-v1.39.0 -DBUILD_TESTING=OFF
         cmake --build . --config Release
         cmake --install . --config Release --prefix ../dist
         cd ../..
@@ -99,7 +99,7 @@ if [[ -n "${BUILD_PATH:-}" ]]; then
     IFS="$BUILD_PATH_SEPARATOR"
     for P in $BUILD_PATH; do
         if [[ $(find "$P" -name Python.h) ]]; then
-            if [[ "$(basename $P)" == "$PLATFORM_HOST" ]]; then
+            if [[ "$(basename $P)" == "${PLATFORM_HOST:-$PLATFORM}" ]]; then
                 CPYTHON_HOST_PATH="$P"
             fi
             if [[ "$(basename $P)" == "$PLATFORM" ]]; then
@@ -175,7 +175,7 @@ case $PLATFORM in
         sedinplace '/CHECK_FUNCTION_EXISTS(posix_fallocate HAVE_POSIX_FALLOCATE)/d' cmake/Dependencies.cmake aten/src/ATen/CMakeLists.txt
         # export PATH=$(brew --prefix llvm@18)/bin:$PATH # Use brew LLVM instead of Xcode LLVM 14
         ;;
-    windows-x86_64)
+    windows-arm64 | windows-x86_64)
         if which ccache.exe; then
             export CC="ccache.exe cl.exe"
             export CXX="ccache.exe cl.exe"
