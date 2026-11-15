@@ -148,7 +148,7 @@ runs:
           curl -LO http://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-vulkan-loader-1.4.313.0-1-any.pkg.tar.zst
           curl -LO http://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-SDL2-2.30.12-1-any.pkg.tar.zst
           bash -c "pacman -U --noconfirm *.pkg.tar.zst"
-        ) else (
+        ) else if not "%CI_LOCAL_BUILD%"=="1" (
           if "%CI_DEPLOY_PLATFORM%"=="windows-arm64" (
             bash -c "pacman -Rc --noconfirm mingw-w64-clang-aarch64-headers-git mingw-w64-clang-aarch64-zlib"
           ) else (
@@ -383,6 +383,13 @@ runs:
         git submodule update --init --recursive
         git submodule foreach --recursive "git reset --hard"
 
+        if "%CI_LOCAL_BUILD%"=="1" (
+          set "MAVEN_OPTS=-Xss2m -Xmx4g"
+          python .github/scripts/build-windows-arm64-local.py
+          if errorlevel 1 exit /b 1
+          goto :done
+        )
+
         if not "%CI_DEPLOY_NEED_GRADLE%"=="" (goto :gradle) else (goto :maven)
 
         :gradle
@@ -425,6 +432,7 @@ runs:
         powershell "Get-CimInstance Win32_PageFileUsage | Select-Object * | Format-List"
 
     - name: Clean up
+      if: env.CI_LOCAL_BUILD != '1'
       shell: cmd
       run: |
         cd /d %USERPROFILE%
