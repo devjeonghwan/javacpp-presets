@@ -15,9 +15,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: linux-x86_64
-            runner: ubuntu-22.04
-            cache: /home/runner/.ccache
           - platform: windows-x86_64
             runner: windows-2022
             cache: ~/ccache/?
@@ -54,6 +51,7 @@ jobs:
         if: runner.os == 'Windows'
         timeout-minutes: 350
         env:
+          CCACHE_COMPILERCHECK: content
           BUILD_DIR: D:\build
           TEMP: D:\temp
           TMP: D:\temp
