@@ -1,0 +1,64 @@
+name: pytorch-gpu-cache-test
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  gpu-cache:
+    name: ${{ matrix.platform }}-gpu-cache
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            runner: ubuntu-22.04
+            cache: /home/runner/.ccache
+          - platform: windows-x86_64
+            runner: windows-2022
+            cache: ~/ccache/?
+    env:
+      CI_GPU_CACHE_TEST: 1
+      CI_DEPLOY_PLATFORM: ${{ matrix.platform }}
+      CI_DEPLOY_MODULE: pytorch
+      CI_DEPLOY_NEED_CACHE: 1
+      CI_DEPLOY_NEED_CUDA: 1
+      CCACHE_LOGFILE: ${{ github.workspace }}/.ci-logs/ccache.log
+    steps:
+      - name: Create log directory
+        shell: bash
+        run: mkdir -p .ci-logs
+      - uses: bytedeco/cache@always
+        with:
+          key: pytorch-gpu-launcher-${{ matrix.platform }}@${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: pytorch-gpu-launcher-${{ matrix.platform }}@
+          path: ${{ matrix.cache }}
+      - name: Create Windows temporary directory
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: if not exist D:\temp mkdir D:\temp
+      - uses: al-cheb/configure-pagefile-action@v1.3
+        if: runner.os == 'Windows'
+        with:
+          minimum-size: 32GB
+          maximum-size: 64GB
+          disk-root: 'D:'
+      - uses: devjeonghwan/javacpp-presets/.github/actions/deploy-ubuntu@test/pytorch-gpu-cache
+        if: runner.os == 'Linux'
+        timeout-minutes: 350
+      - uses: devjeonghwan/javacpp-presets/.github/actions/deploy-windows@test/pytorch-gpu-cache
+        if: runner.os == 'Windows'
+        timeout-minutes: 350
+        env:
+          BUILD_DIR: D:\build
+          TEMP: D:\temp
+          TMP: D:\temp
+      - name: Upload cache diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gpu-cache-${{ matrix.platform }}
+          path: .ci-logs/
+          include-hidden-files: true
+          retention-days: 7

@@ -383,6 +383,13 @@ runs:
         git submodule update --init --recursive
         git submodule foreach --recursive "git reset --hard"
 
+        if "%CI_GPU_CACHE_TEST%"=="1" (
+          set "MAVEN_OPTS=-Xss2m -Xmx4g"
+          python .github/scripts/test-pytorch-gpu-cache.py
+          if errorlevel 1 exit /b 1
+          goto :done
+        )
+
         if not "%CI_DEPLOY_NEED_GRADLE%"=="" (goto :gradle) else (goto :maven)
 
         :gradle
@@ -425,6 +432,7 @@ runs:
         powershell "Get-CimInstance Win32_PageFileUsage | Select-Object * | Format-List"
 
     - name: Clean up
+      if: env.CI_GPU_CACHE_TEST != '1'
       shell: cmd
       run: |
         cd /d %USERPROFILE%
