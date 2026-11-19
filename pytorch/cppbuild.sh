@@ -179,6 +179,7 @@ case $PLATFORM in
         if which ccache.exe; then
             export CC="ccache.exe cl.exe"
             export CXX="ccache.exe cl.exe"
+            export CMAKE_CUDA_COMPILER_LAUNCHER="ccache.exe"
 #            export CUDAHOSTCC="cl.exe"
 #            export CUDAHOSTCXX="cl.exe"
         else
