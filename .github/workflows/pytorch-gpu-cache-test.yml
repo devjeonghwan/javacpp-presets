@@ -1,6 +1,9 @@
 name: pytorch-gpu-cache-test
 on:
   workflow_dispatch:
+  push:
+    branches: [test/pytorch-gpu-cache]
+    paths: [.github/workflows/pytorch-gpu-cache-test.yml]
 permissions:
   contents: read
 jobs:
